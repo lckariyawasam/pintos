@@ -155,6 +155,7 @@ if [ $tool == "all" -o $tool == "gcc" ]; then
   echo "Patching GCC..."
   # Fix a number of bugs that would fail the build on recent macOS environment
   pushd $CWD/src/gcc-6.2.0
+  cat $SCRIPT_DIR/apple_silicon.patch | patch -p2
   cat $SCRIPT_DIR/gcc-6.2.0-ubsan.patch | patch -p2
   cat $SCRIPT_DIR/gcc-6.2.0-gmp-configure.patch | patch -p2
   cat $SCRIPT_DIR/gcc-6.2.0-genconditions.patch | patch -p2
