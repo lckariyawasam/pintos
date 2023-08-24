@@ -133,8 +133,97 @@ pintos_init (void)
     /* Run actions specified on kernel command line. */
     run_actions (argv);
   } else {
-    // TODO: no command line passed to kernel. Run interactively 
+    // TODO: no command line passed to kernel. Run interactively
+
+    // Initialize the console
+    console_init();
+
+    // Outer loop to read commands
+    while(1) {
+
+      // Print the prompt to the console
+      printf("CS2042>");
+
+      // Allocate memory to read and store command
+      char* buffer = malloc(128);
+      char* buffer_start = buffer;
+
+      // Inner loop to read characters for command
+      while (1) {
+
+        // Get each character from the input
+        char c = input_getc();
+
+        // If the character is a newline, finish reading command
+        if (c == '\r') {
+          putchar('\n');
+          // Add null terminator to buffer to signify end of command
+          *buffer++ = '\0';
+          // Break from the inner loop
+          break;
+
+        // If the character is a backspace, remove the last character from the buffer and console
+        } else if (c == '\b') {
+
+          // Check that the buffer not is empty
+          if (buffer_start != buffer) {
+            putchar('\b');
+            putchar(' ');
+            putchar('\b');
+
+            // Decrement the buffer pointer
+            *buffer--;
+
+          }
+        
+        // If not either of the above cases, put the character in the buffer and console
+        } else {
+          putchar(c);
+          *buffer++ = c;
+        }
+      }
+
+      // Inteprete the commands
+
+      if (!strcmp(buffer_start, "whoami")) {
+        printf("Kariyawasam L.C. - 210273B\n");
+      }
+
+      else if (!strcmp(buffer_start, "shutdown")) {
+        shutdown_configure(SHUTDOWN_POWER_OFF);
+        shutdown();
+      }
+
+      else if (!strcmp(buffer_start, "time")) {
+        printf("%d \n", rtc_get_time());
+      }
+
+      else if (!strcmp(buffer_start, "ram")) {
+        printf("TODO \n");
+      }
+
+      else if (!strcmp(buffer_start, "thread")) {
+        thread_print_stats();
+      }
+
+      else if (!strcmp(buffer_start, "priority")) {
+        printf("%d \n",thread_get_priority());
+      }
+
+      else if (!strcmp(buffer_start, "exit")) {
+        printf("EXITING..\n");
+        free(buffer_start);
+        break;
+      }
+      
+      else {
+        printf("Invalid command\n");
+      }
+
+      free(buffer_start);
+    }
   }
+
 
   /* Finish up. */
   shutdown ();
