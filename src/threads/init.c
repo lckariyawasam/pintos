@@ -183,7 +183,7 @@ pintos_init (void)
         }
       }
 
-      // Inteprete the commands
+      // Interpret the commands
 
       if (!strcmp(buffer_start, "whoami")) {
         printf("Kariyawasam L.C. - 210273B\n");
@@ -195,11 +195,11 @@ pintos_init (void)
       }
 
       else if (!strcmp(buffer_start, "time")) {
-        printf("%d \n", rtc_get_time());
+        printf("%d seconds since UNIX epoch \n", rtc_get_time());
       }
 
       else if (!strcmp(buffer_start, "ram")) {
-        printf("TODO \n");
+          printf ("RAM available: %d kB \n", init_ram_pages * PGSIZE / 1024);
       }
 
       else if (!strcmp(buffer_start, "thread")) {
@@ -207,11 +207,11 @@ pintos_init (void)
       }
 
       else if (!strcmp(buffer_start, "priority")) {
-        printf("%d \n",thread_get_priority());
+        printf("Thread priority of the current thread: %d \n",thread_get_priority());
       }
 
       else if (!strcmp(buffer_start, "exit")) {
-        printf("EXITING..\n");
+        printf("Exiting..\n");
         free(buffer_start);
         break;
       }
