@@ -35,7 +35,7 @@ static int syscall_wait(tid_t tid);
 
 void validate_ptr(const void *_ptr);
 void validate_str(const char *_str);
-void validate_buffer(const void* buffer, unsigned size);
+void validate_buffer(const void *buffer, unsigned size);
 int *get_kth_ptr(const void *_ptr, int _k);
 struct file_descriptor *get_from_fd(int fd);
 
@@ -50,6 +50,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   validate_ptr(f->esp);
   int syscall_type = *get_kth_ptr(f->esp, 0);
+  // printf("syscall %d by %s \n", syscall_type, thread_current()->name);
 
   switch (syscall_type)
   {
@@ -137,11 +138,16 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   case SYS_SEEK:
   {
+    int fd = *get_kth_ptr(f->esp, 1);
+    unsigned position = *((unsigned *)get_kth_ptr(f->esp, 2));
+    syscall_seek(fd, position);
     break;
   }
 
   case SYS_TELL:
   {
+    int fd = *get_kth_ptr(f->esp, 1);
+    f->eax = syscall_tell(fd);
     break;
   }
 
@@ -163,7 +169,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 static void syscall_exit(int status)
 {
   struct thread *t = thread_current();
-  printf("%s: exit(%d)\n", t->name, status);
   t->exit_status = status;
   thread_exit();
 }
@@ -284,8 +289,9 @@ static int syscall_read(int fd, void *buffer, unsigned size)
 
   if (fd == KEYBOARD_INPUT)
   {
-    for (unsigned i=0; i<size; i++) { 
-      *((uint8_t *) buffer + i) = input_getc();
+    for (unsigned i = 0; i < size; i++)
+    {
+      *((uint8_t *)buffer + i) = input_getc();
       read_size++;
     }
   }
@@ -354,6 +360,33 @@ static void syscall_close(int fd)
   free(_file_descriptor);
 }
 
+static void syscall_seek(int fd, unsigned position)
+{
+  struct file_descriptor *_file_descriptor = get_from_fd(fd);
+  if (_file_descriptor != NULL)
+  {
+    lock_acquire((&file_system_lock));
+    file_seek(_file_descriptor->_file, position);
+    lock_release(&file_system_lock);
+  }
+}
+
+static unsigned syscall_tell(int fd)
+{
+  unsigned pos = 0;
+  struct file_descriptor *_file_descriptor = get_from_fd(fd);
+  if (_file_descriptor == NULL)
+  {
+    return pos;
+  }
+
+  lock_acquire((&file_system_lock));
+  pos = file_tell(_file_descriptor->_file);
+  lock_release(&file_system_lock);
+
+  return pos;
+}
+
 void validate_ptr(const void *_ptr)
 {
   struct thread *curr_t;
@@ -383,11 +416,11 @@ void validate_str(const char *_str)
   }
 }
 
-void validate_buffer(const void* buffer, unsigned size)
+void validate_buffer(const void *buffer, unsigned size)
 {
-  for (unsigned i=0; i < size; i++)
+  for (unsigned i = 0; i < size; i++)
   {
-    validate_ptr((void*) ((char *) buffer + i));
+    validate_ptr((void *) ((char *) buffer + i));
   }
 }
 
