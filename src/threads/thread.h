@@ -107,6 +107,7 @@ struct thread
 
     int next_fd;                       // next file descriptor
     struct list open_fd_list;  
+    struct file *process_file;         // The file which contains the code for the process
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
