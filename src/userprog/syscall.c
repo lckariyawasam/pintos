@@ -7,6 +7,7 @@
 #include "filesys/filesys.h"
 #include "userprog/syscall.h"
 #include "userprog/pagedir.h"
+#include "devices/shutdown.h"
 
 // static void syscall_handler (struct intr_frame *);
 #define CONSOLE_OUTPUT 1
@@ -50,6 +51,63 @@ syscall_handler (struct intr_frame *f UNUSED)
     f->eax = syscall_write(fd, buffer, size);
     break;
   }
+
+  case SYS_HALT:
+  {
+    shutdown_power_off();
+    break;
+  }
+
+   case SYS_EXEC:
+  {
+    break;
+  }
+
+  case SYS_WAIT:
+  {
+    break;
+  }
+
+  case SYS_CREATE:
+  {
+    break;
+  }
+
+  case SYS_REMOVE:
+  {
+    break;
+  }
+
+  case SYS_OPEN:
+  {
+    break;
+  }
+
+  case SYS_FILESIZE:
+  {
+    break;
+  }
+
+  case SYS_READ:
+  {
+    break;
+  }
+
+  case SYS_SEEK:
+  {
+    break;
+  }
+
+  case SYS_TELL:
+  {
+    break;
+  }
+
+  case SYS_CLOSE:
+  {
+    break;
+  }
+
 
   default:
   {
