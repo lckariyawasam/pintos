@@ -223,8 +223,9 @@ thread_create (const char *name, int priority,
   // add newly created thread as child
   list_push_back(&thread_current()->child_list, &t->child_elem);
   t->parent_t = thread_current();
-  sema_init(&t->exit_sema, 0);
+  sema_init(&t->pre_exit_sema, 0);
   sema_init(&t->init_sema, 0);
+  sema_init(&t->exit_sema, 0);
 
   /* Add to run queue. */
   // thread_unblock (t);
@@ -604,6 +605,7 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_init(&t->child_list);
   list_init(&t->open_fd_list);
+  t->exit_status = -1;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
