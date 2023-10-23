@@ -3,6 +3,7 @@
 
 #include <debug.h>
 #include <list.h>
+#include "threads/synch.h"
 #include <stdint.h>
 
 /* States in a thread's life cycle. */
@@ -94,6 +95,12 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     int64_t wakeup_tick;
+
+    struct list child_list;            // maintain list of children
+    struct list_elem child_elem;       // list element for child list of parent
+    struct thread *parent_t;           // pointer to parent thread
+    struct semaphore child_init;       // semaphore for parent to wait for child to init
+    struct semaphore child_exit;  
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */

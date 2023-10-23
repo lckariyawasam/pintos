@@ -220,6 +220,11 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  // add newly created thread as child
+  list_push_back(&thread_current()->child_list, &t->child_elem);
+  t->parent_t = thread_current();
+  sema_init(&t->child_exit, 0);
+
   /* Add to run queue. */
   // thread_unblock (t);
 
@@ -595,6 +600,8 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
+  list_init(&t->child_list);
+
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
@@ -624,7 +631,7 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else
-    return list_entry (list_pop_back (&ready_list), struct thread, elem);
+    return list_entry (list_pop_front (&ready_list), struct thread, elem);
 }
 
 /* Completes a thread switch by activating the new thread's page
