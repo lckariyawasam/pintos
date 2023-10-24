@@ -73,9 +73,9 @@ start_process (void *all_args)
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (all_args_copy, &if_.eip, &if_.esp);
 
-  struct thread *curr_t = thread_current();
-  curr_t->status_load_success = success;
-  sema_up(&curr_t->init_sema);
+  struct thread *current_thread = thread_current();
+  current_thread->status_load_success = success;
+  sema_up(&current_thread->init_sema);
 
   /* If load failed, quit. */
   palloc_free_page (all_args);
@@ -102,39 +102,35 @@ start_process (void *all_args)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_threadid UNUSED) 
 {
-  struct thread *curr_t;
-  struct thread *child_t;
+  struct thread *current_thread;
+  struct thread *child_thread;
   struct list_elem *child_elem;
 
-  curr_t = thread_current();
+  current_thread = thread_current();
 
-  // Check if child_tid is in current threads children.
-  for 
-  (
-    child_elem = list_begin(&curr_t->child_list); 
-    child_elem != list_end(&curr_t->child_list);
-    child_elem = list_next(child_elem)
-  )
-  {
-    child_t = list_entry(child_elem, struct thread, child_elem);
-    if (child_t->tid == child_tid) { break; }
+  // Find the child with child_threadid in the list of children
+  for (child_elem = list_begin(&current_thread->child_list);  child_elem != list_end(&current_thread->child_list); child_elem = list_next(child_elem)) {
+    child_thread = list_entry(child_elem, struct thread, child_elem);
+    if (child_thread->tid == child_threadid) { 
+      break; 
+    }
   }
-  // If child with child_tid was not in list, its not a child of the calling process
-  if (child_elem == list_end(&curr_t->child_list)) { 
+  
+  // If child with child_threadid was not in list, its not a child of the calling process
+  if (child_elem == list_end(&current_thread->child_list)) { 
     return -1; 
   }
-
-  list_remove(&child_t->child_elem);
+  list_remove(&child_thread->child_elem);
 
   // Wait for child thread to exit
-  sema_down(&child_t->pre_exit_sema);
+  sema_down(&child_thread->pre_exit_sema);
 
-  // printf("# %s waited for child %s with exit %d\n", curr_t->name, child_t->name, child_t->exit_status);
-  int exit_status = child_t->exit_status;
+  // printf("# %s waited for child %s with exit %d\n", current_thread->name, child_thread->name, child_thread->exit_status);
+  int exit_status = child_thread->exit_status;
   // indicate that childs exit status was obtained
-  sema_up(&child_t->exit_sema);
+  sema_up(&child_thread->exit_sema);
   return exit_status;
 }
 
