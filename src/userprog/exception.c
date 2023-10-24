@@ -19,19 +19,16 @@ void _validate_ptr(const void *_ptr)
   struct thread *curr_t;
   curr_t = thread_current();
 
-  if (_ptr == NULL)
-  {
+  if (_ptr == NULL) {
     // obviusly shouldnt be a null pointer
     thread_exit();
   }
-  if (is_kernel_vaddr(_ptr))
-  {
+  if (is_kernel_vaddr(_ptr)) {
     // shouldn't be in kernel address space
     // NOTE: this should be called before pagedir_get_page to prevent an assertion error
     thread_exit();
   }
-  if (pagedir_get_page(curr_t->pagedir, _ptr) == NULL)
-  {
+  if (pagedir_get_page(curr_t->pagedir, _ptr) == NULL) {
     // address should be mapped
     thread_exit();
   }

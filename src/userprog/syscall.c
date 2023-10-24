@@ -51,7 +51,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   validate_ptr(f->esp);
   int syscall_type = *get_kth_ptr(f->esp, 0);
   // printf("syscall %d by %s \n", syscall_type, thread_current()->name);
-
   switch (syscall_type)
   {
   case SYS_EXIT:
@@ -429,7 +428,7 @@ int *get_kth_ptr(const void *_ptr, int _k)
   int *next_ptr = (int *)_ptr + _k;
   validate_ptr((void *)next_ptr);
   // Catch the edge case where just a part of the value is in valid address space
-  validate_ptr((void *)(next_ptr + 1));
+  // validate_ptr((void *)(next_ptr + 1));
   return next_ptr;
 }
 

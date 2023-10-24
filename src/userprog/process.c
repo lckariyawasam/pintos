@@ -31,8 +31,7 @@ tid_t
 process_execute (const char *file_name) 
 {
   char *fn_copy;
-  char *save_ptr;
-  char *_file_name;
+  char *file_name_copy;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -43,26 +42,27 @@ process_execute (const char *file_name)
   strlcpy (fn_copy, file_name, PGSIZE);
 
   /* We only need the first token in the string as the file name */
-  _file_name = malloc(strlen(file_name) + 1);
-  strlcpy (_file_name, file_name, strlen(file_name)+1);
-  _file_name = strtok_r((char*) _file_name, " ", &save_ptr );
+  file_name_copy = malloc(strlen(file_name) + 1);
+  strlcpy (file_name_copy, file_name, strlen(file_name)+1);
+  char *save_ptr;
+  file_name_copy = strtok_r((char*) file_name_copy, " ", &save_ptr );
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (_file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name_copy, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
-  free(_file_name);
+  free(file_name_copy);
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *cmd_args)
+start_process (void *all_args)
 {
-  // cmd_args is the fn_copy param passed to `thread_create`
-  char *_cmd_args = cmd_args;
+  // all_args is the fn_copy param passed to `thread_create`
+  char *all_args_copy = all_args;
   struct intr_frame if_;
   bool success;
 
@@ -71,14 +71,14 @@ start_process (void *cmd_args)
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (_cmd_args, &if_.eip, &if_.esp);
+  success = load (all_args_copy, &if_.eip, &if_.esp);
 
   struct thread *curr_t = thread_current();
   curr_t->status_load_success = success;
   sema_up(&curr_t->init_sema);
 
   /* If load failed, quit. */
-  palloc_free_page (cmd_args);
+  palloc_free_page (all_args);
   if (!success) 
     thread_exit ();
 
@@ -268,7 +268,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, const char *cmd_args);
+static bool setup_stack (void **esp, const char *all_args);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -279,7 +279,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *cmd_args, void (**eip) (void), void **esp) 
+load (const char *all_args, void (**eip) (void), void **esp) 
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -377,7 +377,7 @@ load (const char *cmd_args, void (**eip) (void), void **esp)
     }
 
   /* Set up stack. */
-  if (!setup_stack (esp, cmd_args))
+  if (!setup_stack (esp, all_args))
     goto done;
 
   /* Start address. */
@@ -506,22 +506,22 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-#define DEFAULT_ARG_SIZE 3
+#define DEFAULT_ARG_COUNT 3
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, const char *cmd_args) 
+setup_stack (void **esp, const char *all_args) 
 {
   uint8_t *kpage;
   bool success = false;
 
-  char *_cmd_args;
+  char *all_args_copy;
   char *token, *save_ptr;
-  int arg_count = 0;
-  int byte_size = 0;
-  char **cmd_args_arr;
-  char **cmd_arg_addr_arr;
+  int argc = 0;
+  int stack_size = 0;
+  char **argv;
+  char **arg_stack_pointers;
 
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) 
@@ -529,90 +529,89 @@ setup_stack (void **esp, const char *cmd_args)
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       
       if (success) {
-        // move stack pointer to top of user space
+        // Initialize stack pointer to the end of user programs address space
         *esp = PHYS_BASE;
       
-        // make a copy of cmd_args since using strtok_r will need to modify it in place
-        _cmd_args = palloc_get_page(0);
-        if (_cmd_args == NULL)
-          return TID_ERROR;
-        strlcpy(_cmd_args, cmd_args, PGSIZE);
+        // // Make a copy of all_args to make changes
+        // all_args_copy = palloc_get_page(0);
+        // if (all_args_copy == NULL)
+        //   return TID_ERROR;
+        // strlcpy(all_args_copy, all_args, PGSIZE);
 
-        // keep an array to save the separated args into
-        cmd_args_arr = malloc(DEFAULT_ARG_SIZE*sizeof(char*));
-        for (
-          token = strtok_r(_cmd_args, " ", &save_ptr); 
-          token != NULL;
-          token = strtok_r(NULL, " ", &save_ptr)
-        ) 
-        {
-          arg_count += 1;
-          if (arg_count > DEFAULT_ARG_SIZE) {
-            cmd_args_arr = realloc(cmd_args_arr, arg_count*sizeof(char*));
+        // Initialize array argv to store the arguments
+        argv = malloc(DEFAULT_ARG_COUNT * sizeof(char*));
+        for (token = strtok_r(all_args, " ", &save_ptr); token != NULL; token = strtok_r(NULL, " ", &save_ptr)) {
+          // Increment the arg counter
+          argc += 1;
+          if (argc > DEFAULT_ARG_COUNT) {
+            argv = realloc(argv, argc * sizeof(char*));
           }
-          cmd_args_arr[arg_count-1] = token;
+          argv[argc-1] = token;
         }
 
-        // save args to stack. also keep the pointers to each arg in an array
+        // Save the args to the stack and store pointers to each of the args in arg_stack_array
         int arg_len;
-        cmd_arg_addr_arr = malloc(arg_count*sizeof(char*));
-        for (int i=arg_count; i>0; i--) {
-          arg_len = strlen(cmd_args_arr[i-1]) + 1; // add 1 for the \0 at the end
-          byte_size += arg_len;
+
+        // Allocate memory to hold the argument pointers
+        arg_stack_pointers = malloc(argc*sizeof(char*));
+        for (int i = argc; i > 0; i--) {
+          arg_len = strlen(argv[i-1]) + 1;
+          // printf("Arg %d length: %d\n", i-1, arg_len);
+          stack_size += arg_len;
           *esp -= arg_len;
-          cmd_arg_addr_arr[i-1] = *esp;
-          memcpy(*esp, cmd_args_arr[i-1], arg_len);
+          arg_stack_pointers[i-1] = *esp;
+          memcpy(*esp, argv[i-1], arg_len);
         }
 
-        // printf("stack pointer before word align at %p\n", *esp);
-        // word align
-        int word_align = byte_size % 4;
+        // printf("Stack pointer before word aligning: %p\n", *esp);
+
+        // Word align the stack pointer, that is make sure it is at a multiple of 4
+        int word_align = stack_size % 4;
         if (word_align != 0) {
-          word_align = 4 - word_align;
-          *esp -= word_align;
-          memset(*esp, 0, word_align);
+          word_align = 4 - word_align; // This is the change in memory required
+          *esp -= word_align; // Move the stack pointer back by the change in memory
+          memset(*esp, 0, word_align); // Fill the empty space on the stack with zeros
         }
-        // printf("stack pointer after word align at %p\n", *esp);
 
-        // null pointer
-        *esp -= sizeof(char*);
-        byte_size += sizeof(char*);
-        // printf("null pointer at %p\n", *esp);
-        *(char *) *esp = 0;
+        // // Check that the word alinging has worked
+        // printf("Stack pointer after word aligning: %p\n", *esp);
+
+        // Leave a null pointer
+        *esp -= sizeof(char *);
+        stack_size += sizeof(char *);
+        *(char *) *esp = 0; // Fill in the space of the stack with zeros, for the sizeof(char)
 
         // save pointers to each arg on the stack
-        for (int i=arg_count; i>0; i--) {
-          *esp -= sizeof(char*);
-          byte_size += sizeof(char*);
-          // printf("arg %d addr %p at %p\n", i-1, cmd_arg_addr_arr[i-1], *esp);
-          *(int *) *esp = (unsigned) cmd_arg_addr_arr[i-1];
+        for (int i = argc; i > 0; i--) {
+          *esp -= sizeof(int *);
+          stack_size += sizeof(int *);
+          // printf("Arg %d address %p at %p\n", i-1, arg_stack_pointers[i-1], *esp);
+          *(int *) *esp = (unsigned) arg_stack_pointers[i-1];
         }
 
-        // save address of pointer to array of pointers to args
+        // Save the address of the arg pointers array on the stack
         void *temp = *esp;
-        *esp -= sizeof(char**);
-        byte_size += sizeof(char**);
-        // printf("arg pointers arr addr at %p\n", *esp);
-        memcpy(*esp, &temp, sizeof(char**));
+        *esp -= sizeof(int**);
+        stack_size += sizeof(int**);
+        // printf("arg_stack_pointers array pointer: %p\n", *esp);
+        memcpy(*esp, &temp, sizeof(int**));
 
-        // save number of arguments to stack
+        // Save number of arguments (argc) on the stack
         *esp -= sizeof(int);
-        byte_size += sizeof(int);
-        // printf("arg count at %p\n", *esp);
-        memcpy(*esp, &arg_count, 1);
+        stack_size += sizeof(int);
+        // printf("Argc pointer %p\n", *esp);
+        memcpy(*esp, &argc, 1);
 
-        // finally save a fake return address
+        // Keep space for return address, not initialized to any value at first
         *esp -= sizeof(void*);
-        byte_size += sizeof(void*);
+        stack_size += sizeof(void*);
 
-        // free allocated memory
-        free(cmd_arg_addr_arr);
-        free(cmd_args_arr);
-        palloc_free_page(_cmd_args);
+        // Free the allocated memory
+        free(arg_stack_pointers);
+        free(argv);
+        palloc_free_page(all_args_copy);
 
-        // hex_dump((int)*esp, *esp, byte_size*2, 1);
       } else {
-        // if we fail to install the page then free it
         palloc_free_page (kpage);
       }
     }
