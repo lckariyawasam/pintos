@@ -35,7 +35,7 @@ static int syscall_wait(tid_t tid);
 
 void check_pointer_validity(const void *pointer);
 void check_string_validity(const char *string);
-void validate_buffer(const void *buffer, unsigned size);
+void check_buffer_validity(const void *buffer, unsigned size);
 int *get_pointer_n(const void *pointer, int _k);
 struct file_descriptor *get_from_fd(int fd);
 
@@ -67,7 +67,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     int fd = *get_pointer_n(f->esp, 1);
     void *buffer = (void *)*get_pointer_n(f->esp, 2);
     unsigned size = *((unsigned *)get_pointer_n(f->esp, 3));
-    validate_buffer(buffer, size);
+    check_buffer_validity(buffer, size);
 
     f->eax = syscall_write(fd, buffer, size);
     break;
@@ -131,7 +131,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     int fd = *get_pointer_n(f->esp, 1);
     void *buffer = (void *)*get_pointer_n(f->esp, 2);
     unsigned size = *((unsigned *)get_pointer_n(f->esp, 3));
-    validate_buffer(buffer, size);
+    check_buffer_validity(buffer, size);
 
     f->eax = syscall_read(fd, buffer, size);
     break;
@@ -421,7 +421,7 @@ void check_string_validity(const char *string)
   }
 }
 
-void validate_buffer(const void *buffer, unsigned size)
+void check_buffer_validity(const void *buffer, unsigned size)
 {
   for (unsigned i = 0; i < size; i++)
   {

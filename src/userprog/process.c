@@ -125,7 +125,7 @@ process_wait (tid_t child_threadid UNUSED)
   list_remove(&child_thread->child_elem);
 
   // Wait for child thread to exit
-  sema_down(&child_thread->pre_exit_sema);
+  sema_down(&child_thread->exit_status_sema);
 
   // printf("# %s waited for child %s with exit %d\n", current_thread->name, child_thread->name, child_thread->exit_status);
   int exit_status = child_thread->exit_status;
@@ -138,38 +138,38 @@ process_wait (tid_t child_threadid UNUSED)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread *current_thread = thread_current ();
   uint32_t *pd;
 
-  printf("%s: exit(%d)\n", cur->name, cur->exit_status);
+  printf("%s: exit(%d)\n", current_thread->name, current_thread->exit_status);
 
-  if (cur->process_file != NULL)
+  if (current_thread->process_file != NULL)
   {
-    file_allow_write(cur->process_file);
-    file_close(cur->process_file);
+    file_allow_write(current_thread->process_file);
+    file_close(current_thread->process_file);
   }
 
   // close any open files
   struct list_elem *fd_elem;
-  while(!list_empty(&cur->open_fd_list))
+  while(!list_empty(&current_thread->open_fd_list))
   {
-      fd_elem = list_pop_front(&cur->open_fd_list);
+      fd_elem = list_pop_front(&current_thread->open_fd_list);
       struct file_descriptor *_file_descriptor = list_entry(fd_elem, struct file_descriptor, fd_elem);
       file_close(_file_descriptor->_file);
       list_remove(&_file_descriptor->fd_elem);
       free(_file_descriptor);
   }
 
-  // Let parent know that this is ready to exit
-  sema_up(&cur->pre_exit_sema);
+  // Allow parent to get exit status
+  sema_up(&current_thread->exit_status_sema);
 
 
   // wait for parent to obtain exit status
-  sema_down(&cur->exit_sema);
+  sema_down(&current_thread->exit_sema);
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
+  pd = current_thread->pagedir;
   if (pd != NULL) 
     {
       /* Correct ordering here is crucial.  We must set
@@ -179,7 +179,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      cur->pagedir = NULL;
+      current_thread->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }

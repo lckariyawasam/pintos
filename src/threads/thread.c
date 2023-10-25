@@ -223,7 +223,7 @@ thread_create (const char *name, int priority,
   // add newly created thread as child
   list_push_back(&thread_current()->child_list, &t->child_elem);
   t->parent_t = thread_current();
-  sema_init(&t->pre_exit_sema, 0);
+  sema_init(&t->exit_status_sema, 0);
   sema_init(&t->init_sema, 0);
   sema_init(&t->exit_sema, 0);
 
